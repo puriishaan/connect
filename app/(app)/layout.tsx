@@ -17,6 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Link href="/modes/respond" className="hover:text-black">Respond</Link>
           <Link href="/modes/reachout" className="hover:text-black">Reach Out</Link>
           <Link href="/contacts" className="hover:text-black">Contacts</Link>
+          <Link href="/settings" className="hover:text-black">Settings</Link>
           <form action={async () => { "use server"; await signOut({ redirectTo: "/login" }); }}>
             <button type="submit" className="text-gray-400 hover:text-black">Sign out</button>
           </form>
