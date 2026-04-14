@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SyncStatus {
+  idle
+  syncing
+  complete
+  error
+}
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  name          String?
+  googleId      String     @unique
+  accessToken   String?
+  refreshToken  String?
+  tokenExpiry   DateTime?
+  syncStatus    SyncStatus @default(idle)
+  syncProgress  Int        @default(0)
+  syncJobId     String?
+  lastSyncedAt  DateTime?
+  createdAt     DateTime   @default(now())
+
+  contacts      Contact[]
+  threads       Thread[]
+  syncLogs      SyncLog[]
+  checkSessions CheckSession[]
+}
+
+model Contact {
+  id                   String    @id @default(cuid())
+  userId               String
+  email                String
+  name                 String?
+  isWorthwhile         Boolean   @default(false)
+  worthwhileReason     String?
+  relationshipSummary  String?
+  firstContactDate     DateTime?
+  lastContactDate      DateTime?
+  contactFrequencyDays Int?
+  threadCount          Int       @default(0)
+  catchUpFrequencyDays Int?
+  excludedFromCatchup  Boolean   @default(false)
+  enrichedData         Json?
+  enrichedAt           DateTime?
+  createdAt            DateTime  @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  threads  Thread[]
+
+  @@unique([userId, email])
+}
+
+model Thread {
+  id            String    @id @default(cuid())
+  userId        String
+  gmailThreadId String
+  contactId     String?
+  subject       String?
+  summary       String?
+  lastMessageAt DateTime?
+  messageCount  Int       @default(0)
+  needsReply    Boolean   @default(false)
+  snippet       String?
+  createdAt     DateTime  @default(now())
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contact  Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  messages Message[]
+
+  @@unique([userId, gmailThreadId])
+}
+
+model Message {
+  id         String    @id @default(cuid())
+  threadId   String
+  gmailMsgId String    @unique
+  fromEmail  String?
+  toEmails   String[]
+  subject    String?
+  bodyText   String?
+  sentAt     DateTime?
+  isFromUser Boolean   @default(false)
+
+  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+}
+
+model SyncLog {
+  id               String    @id @default(cuid())
+  userId           String
+  startedAt        DateTime  @default(now())
+  finishedAt       DateTime?
+  threadsProcessed Int       @default(0)
+  contactsFound    Int       @default(0)
+  errorMessage     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CheckSession {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  currentIndex Int      @default(0)
+  completed    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
