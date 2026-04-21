@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { prisma } from "./prisma";
+import { syncQueue } from "./queue";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -21,7 +22,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ user, account }) {
       if (!account || account.provider !== "google") return false;
 
-      await prisma.user.upsert({
+      const dbUser = await prisma.user.upsert({
         where: { googleId: account.providerAccountId },
         create: {
           email: user.email!,
@@ -42,6 +43,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.name,
         },
       });
+
+      if (dbUser.syncStatus !== "syncing") {
+        const job = await syncQueue.add("sync", { userId: dbUser.id }, {
+          attempts: 3,
+          backoff: { type: "exponential", delay: 5000 },
+        });
+        await prisma.user.update({
+          where: { id: dbUser.id },
+          data: { syncStatus: "syncing", syncProgress: 0, syncJobId: job.id },
+        });
+      }
 
       return true;
     },
